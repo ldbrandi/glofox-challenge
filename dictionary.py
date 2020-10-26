@@ -8,8 +8,6 @@ def makeDictionary(rdd):
     """Create a tuple (key,value) to be used as dictionary."""
     return rdd.distinct() \
             .zipWithIndex()
-            # .map(lambda x: (x[1],x[0]))
-
 
 def main(spark, input_path, output_path):
     """
@@ -29,11 +27,10 @@ def main(spark, input_path, output_path):
     if path.exists(output_path):
         shutil.rmtree(output_path)
 
-    # dictionary_rdd.repartition(1).saveAsTextFile(output_path) # single file
     df = spark.createDataFrame(dictionary_rdd, ["word", "wordId"])
     df.write.parquet(output_path)
 
-    return df
+    return df # testing or integration purpouses
 
     
 if __name__ == '__main__':

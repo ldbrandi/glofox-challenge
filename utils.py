@@ -3,7 +3,7 @@ from pyspark.conf import SparkConf
 
 
 def createSparkSession():
-    """Create and return the SparkContext(sc)."""
+    """Create and return the SparkSession."""
     conf = SparkConf() \
         .setMaster('local[*]') \
         .setExecutorEnv('spark.executor.memory', '4g') \

@@ -1,8 +1,8 @@
 import shutil
 import os
+import pyspark.sql.functions as F
 
 from utils import *
-import pyspark.sql.functions as F
 
 
 def listFiles(path):
@@ -26,9 +26,17 @@ def listFiles(path):
     return files_list
 
 def keyValueFile(rdd, file_num):
+    """Only used for mapping the source file."""
     return rdd.map(lambda word: (word, file_num))
 
 def addIdToFiles(spark, source_path):
+    """
+    Add the docId for each RDD, append to a list and
+    Union all to create a single RDD.
+
+    Returns:
+    Union of every RDD in the source_path
+    """
     list_of_rdd = []
 
     for file in listFiles(source_path):
@@ -38,6 +46,13 @@ def addIdToFiles(spark, source_path):
         list_of_rdd.append(rdd)
 
     return spark.sparkContext.union(list_of_rdd)
+
+def joinFilesDict(files_df, dictionary_df):
+    """Left join files with dictionary and keep only wordId and docId columns"""
+    pre_agg_df = files_df.join(
+        dictionary_df, dictionary_df.word == files_df.word, how='left')
+
+    return pre_agg_df.select(F.col('wordId'), F.col('docId'))
 
 def main(spark, source_path, dict_path, output_path):
     """
@@ -54,13 +69,10 @@ def main(spark, source_path, dict_path, output_path):
     files_rdd = addIdToFiles(spark, source_path)
     files_df = spark.createDataFrame(files_rdd, ['word', 'docId'])
     dictionary_df = spark.read.parquet(dict_path) 
+    full_df = joinFilesDict(files_df, dictionary_df)
 
-    pre_agg_df = files_df.join(
-        dictionary_df, dictionary_df.word == files_df.word, how='left')
-
-    filtered_df = pre_agg_df.select(F.col('wordId'), F.col('docId'))
-
-    inverted_index_df = filtered_df.groupBy(F.col('wordId')) \
+    inverted_index_df = full_df \
+        .groupBy(F.col('wordId')) \
         .agg(F.sort_array(F.collect_list(F.col('docId'))).alias('docId')) \
         .orderBy(F.col('wordId'))
 
@@ -69,7 +81,7 @@ def main(spark, source_path, dict_path, output_path):
 
     inverted_index_df.write.parquet(output_path)
 
-    return inverted_index_df
+    return inverted_index_df # for testing or integration purpouses
 
 
 if __name__ == '__main__':
@@ -78,36 +90,3 @@ if __name__ == '__main__':
     output_path = './output/inverted_index'
 
     main(createSparkSession(), source_path, dict_path, output_path)
-
-# source_path = './dataset/'
-# dict_path = './output/dictionary'
-# output_path = './output/inverted_index'
-
-# df = main(createSparkSession(), source_path, dict_path, output_path)
-
-# import os
-# from utils import *
-# lista = listFiles('./dataset/')  
-# spark = createSparkSession() 
-# rdd0 = readFiles(spark.sparkContext, './dataset/' + str(lista[0]))  
-# rdd0 = prepareRdd(rdd0).distinct()
-# rdd0 = rdd0.map(lambda word:(word,0))
-# dict_df = spark.read.parquet('./output/dictionary') 
-
-# list_of_rdd = []
-# for file in lista:
-#     rdd = readFiles(spark.sparkContext, './dataset/' + str(file))
-#     rdd = prepareRdd(rdd).distinct()
-#     rdd = keyValueFile(rdd, file)
-#     list_of_rdd.append(rdd)
-# final_rdd = spark.sparkContext.union(list_of_rdd)
-
-# df = spark.createDataFrame(rdd, ['word', 'file'])
-
-# files_df = spark.createDataFrame(final_rdd, ['word', 'file'])
-
-# pre_agg_df = files_df.join(
-#     dict_df, dict_df.word == files_df.word, how='left')
-
-
-# df.groupBy(F.col('wordId')).agg(F.sort_array(F.collect_list(F.col('docId'))).alias('docId')).orderBy(F.col('wordId')).show()
