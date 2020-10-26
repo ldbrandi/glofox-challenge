@@ -19,6 +19,15 @@ Spark 3.0.1
     # or
     inverted_index_df.show()
 
-## Notes
+## How to run
+
+    python dictionary.py
+    python inverted_index.py
+
+The default spark configuration takes 4g and all local cores.  
+To change the SparkConf, update the function createSparkSession() in utils.py
+
+## Notes and improvements
 - Containers were not used in this project
 - Tests are not complete
+- Make better use of functional programming
