@@ -28,7 +28,7 @@ def main(spark, input_path, output_path):
         shutil.rmtree(output_path)
 
     df = spark.createDataFrame(dictionary_rdd, ["word", "wordId"])
-    df.write.parquet(output_path)
+    df.repartition(10).write.parquet(output_path)
 
     return df # testing or integration purpouses
 
